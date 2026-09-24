@@ -1,49 +1,83 @@
 ---
 name: create-prompt
 description: >
-  Prepares a refined, self-contained, deeply-grounded prompt for another AI agent (planning agent,
-  coding agent, subagent, or human developer) to plan or implement a task, feature, diagnostic, or
-  bugfix in a codebase. Performs read-only codebase reconnaissance to extract exact file paths,
-  existing precedents, regeneration commands, and affected test suites without modifying code or
-  entering implementation planning mode. Use whenever the user asks to prepare, refine, or write a
-  prompt for another agent or model.
+  Turns unstructured user thoughts and intent into a structured, self-contained statement of WHAT
+  should be done — a problem brief with goal, desired outcome, acceptance criteria, scope, and open
+  questions — for a downstream planning agent to turn into a HOW. Performs light read-only codebase
+  reconnaissance only to orient the planner (real subsystem names, entry points, false premises) and
+  never prescribes a solution, file edits, or build commands. Use whenever the user asks to prepare,
+  refine, or write a prompt for another agent or model.
 user-invocable: true
 ---
 
 # create-prompt
 
-Prepares a comprehensive, highly-structured, and repository-grounded prompt for another agent
-(such as a planning agent, coding agent, subagent, or external model) or human developer.
+Turns the user's unstructured thoughts into a structured, self-contained **statement of the problem
+and the desired outcome** — explicitly *not* a solution.
+
+This skill sits at stage two of this pipeline:
+
+```text
+user's raw thoughts → [create-prompt] → WHAT brief → planning agent → HOW plan
+    → plan review → implementing agent → implementation review
+```
+
+Everything downstream decides *how*. This skill decides *what* and *why*, and makes both
+unambiguous, verifiable, and grounded in real repository vocabulary.
+
 This is a **personal** skill: it lives in `~/Pets/skills/prompting/create-prompt` and runs across
 worktrees and repositories without ever committing to project codebases.
 
-When users ask an agent to "prepare a prompt for another agent," agents commonly make two critical errors:
-1. They misunderstand the goal and begin **implementing the task** or running builds/tests in the current session.
-2. They enter a multi-step **plan mode** to plan their own execution rather than producing the prompt itself.
-3. They produce vague, abstract prompts that lack the concrete file paths, symbols, and test impact analysis
-   that make downstream agents effective.
+When users ask an agent to "prepare a prompt for another agent", agents commonly make these errors:
 
-`create-prompt` enforces a strict separation: **investigate read-only, assess test impact, ground everything in
-concrete repo facts, and deliver only the ready-to-use prompt.**
+1. They start **implementing the task** or running builds/tests in the current session.
+2. They enter a multi-step **plan mode** to plan their own execution instead of producing the prompt.
+3. They **prescribe the solution** — file-by-file edits, step-by-step logic, function signatures —
+   stealing the planner's job and locking in a design nobody reviewed.
+4. They **silently invent** answers to things the user never specified, instead of asking or
+   surfacing them as open questions.
+
+`create-prompt` enforces a strict separation: **capture intent, clarify ambiguity, orient with
+read-only recon, and deliver a WHAT-only brief.**
 
 Companion references alongside this file:
-- [`reference/templates.md`](reference/templates.md) — modular templates for planning prompts, implementation prompts, bugfix prompts, and refactoring prompts.
-- [`reference/checklist.md`](reference/checklist.md) — 10-point quality verification checklist before delivering the prompt.
+
+- [`reference/templates.md`](reference/templates.md) — the primary WHAT template plus feature,
+  bugfix, and refactor variants.
+- [`reference/checklist.md`](reference/checklist.md) — WHAT-ness quality gates to run before
+  delivering the prompt.
 
 ---
 
 ## Hard Rules
 
-1. **Never implement the underlying task in the current session.**
-   All repository interactions must remain strictly **read-only** (searching code, reading files, inspecting git history, checking test suites). Do not edit source files, add tests, or modify project configurations.
-2. **Never enter task-execution planning mode for yourself.**
-   Do not trigger agent plan mode, delivery plans, or execution checklists to implement the requested feature. You are acting as the prompt designer and codebase researcher, not the implementer.
-3. **Deep codebase grounding — zero hand-waving.**
-   Every file path, class, interface, method, diagnostic name, CLI command, and Gradle task mentioned in the prompt must be verified against the actual repository. Never guess or approximate file locations.
-4. **Mandatory Test Impact Assessment.**
-   A high-quality prompt must anticipate what existing tests will break when the change is applied. You must actively search existing test suites (e.g. `testData`, unit tests, integration tests, box tests) to identify tests that will fail due to unexpected warnings, errors, or signature changes.
-5. **Clean, uncluttered delivery.**
-   Output the final prompt in a clean, self-contained format (either written to a standalone file like `prompt.md` if requested or implied, or wrapped in a single markdown code block). Do not prepend conversational filler ("Sure, here is your prompt:") or append meta-commentary recapping your research steps.
+1. **No solution prescription.**
+   The prompt states the problem and the desired outcome. It must not contain step-by-step logic,
+   function or class signatures to add, "modify file X so that it does Y", chosen algorithms,
+   chosen data structures, or build/test commands to run. If the user genuinely mandates a solution
+   detail, it goes under `Constraints`, labelled as a constraint the planner must respect — never
+   presented as a design.
+   *Litmus test:* two competent engineers should be able to read the brief, pick **different**
+   designs, and both fully satisfy it.
+2. **Never implement the underlying task in the current session.**
+   All repository interaction stays strictly **read-only**: searching, reading, inspecting history.
+   No edits to source, tests, or configuration.
+3. **Never enter task-execution planning mode for yourself.**
+   No delivery plans or execution checklists for the requested feature. You are the intent
+   clarifier and brief author, not the planner and not the implementer.
+4. **Ask, or surface — never invent.**
+   Where the user's thoughts are ambiguous, either ask a small number of focused questions (prefer
+   this when the answer changes the shape of the work) or record the gap under
+   `Open Questions for the Planner`. Never fill a gap with a guess presented as a requirement.
+5. **Ground names, not solutions.**
+   Every subsystem, module, symbol, and path named in the brief must exist and be verified. Recon
+   grounds the *vocabulary* and *orientation*; it does not choose the implementation.
+6. **Keep it short.**
+   Target ~40–80 lines. Volume is the main force that drags a brief into HOW. If a section has
+   nothing real to say, omit it.
+7. **Clean, uncluttered delivery.**
+   Output only the brief — written to a file if requested, otherwise a single markdown code block.
+   No "Sure, here is your prompt:", no recap of your research steps.
 
 ---
 
@@ -51,90 +85,107 @@ Companion references alongside this file:
 
 ```mermaid
 graph LR
-    P[1. Parse Intent & Target] --> R[2. Read-Only Reconnaissance]
-    R --> T[3. Test Impact Mapping]
-    T --> S[4. Synthesize Prompt]
-    S --> V[5. Pre-Flight Checklist]
-    V --> D[6. Deliver Prompt]
+    I[1. Extract Intent] --> C[2. Clarify Ambiguity]
+    C --> R[3. Orientation Recon]
+    R --> S[4. Synthesize WHAT Brief]
+    S --> V[5. WHAT-ness Gates]
+    V --> D[6. Deliver]
 ```
 
-### Step 1 — Parse Intent & Target Recipient
+### Step 1 — Extract Intent
 
-Analyze the user's instructions to determine:
-- **Target Recipient:**
-  - *Planning Agent:* Needs architectural context, file breakdown, verification strategy, and open questions to resolve.
-  - *Coding / Implementation Agent:* Needs exact file edits, function signatures, error handling, generator commands, and targeted test commands.
-  - *Subagent / General Purpose:* Needs a self-contained brief with explicit scope boundaries and deliverables.
-- **Task Category:** New compiler diagnostic, feature addition, bug reproduction/fix, API deprecation, or refactor.
-- **Explicit Constraints:** Severity levels (e.g., `WARNING` vs `ERROR`), suppressibility requirements (`@Suppress`), positioning strategies, backward compatibility, performance constraints.
-- **Output Mode:** Standalone file (e.g., `prompt.md` or a specified file path) vs. direct inline markdown block.
+From the user's unstructured input, separate:
 
-### Step 2 — Read-Only Codebase Reconnaissance
+- **Problem / motivation** — what is wrong or missing today, and why it matters.
+- **Desired outcome** — what should be observably true once this is done.
+- **Hard constraints** — things that must hold (compatibility, severity, platform, deadlines,
+  a mandated technology).
+- **Preferences** — the user's loose opinions, explicitly marked as non-binding.
+- **Solution fragments the user already voiced** — do not promote these to requirements. Either
+  record them as constraints (if the user means them as mandates) or as preferences.
+- **Scope boundaries and non-goals** — what this work is *not*.
 
-Explore the repository to uncover the concrete facts needed by the downstream agent:
-1. **Find Existing Precedents / Analogues:**
-   Search for similar features or diagnostics in the codebase. (e.g., if adding a suspend-function check, find how regular function checks are implemented; if adding a CLI flag, find existing flags).
-2. **Locate Exact Integration Points:**
-   Identify concrete relative file paths for:
-   - Checkers / visitors / handlers (e.g., `FirJsInheritanceClassChecker.kt`).
-   - Declaration and registration DSLs (e.g., `FirJsDiagnosticsList.kt`).
-   - Message bundles and localization (e.g., `FirJsErrorsDefaultMessages.kt`).
-   - Generators and build tasks (e.g., `:generateDiagnostics`, `:generateTests`).
-3. **Verify API Types and Helper Methods:**
-   Find exact method names and signatures (e.g., `ConeKotlinType.isSuspendFunctionTypeOrSubtype(session)`), positioning strategies (e.g., `DECLARATION_SIGNATURE_OR_DEFAULT`), and AST/FIR node types.
+### Step 2 — Clarify Ambiguity
 
-### Step 3 — Test Impact & Invalidation Mapping
+List what is genuinely undetermined. For each gap, decide:
 
-A primary failure mode of automated code generation is unexpected test regressions. Investigate tests before writing the prompt:
-1. **Search for Impacted Existing Tests:**
-   Grep `testData` and test sources for patterns that the new logic will affect:
-   - Tests that implement or call the newly restricted construct.
-   - Diagnostic tests that assert on the exact list of emitted errors/warnings.
-   - End-to-end / box / codegen tests that might fail compilation due to unexpected diagnostic errors or warnings.
-   - Incremental compilation and cache invalidation test suites.
-2. **Define Test Expectations:**
-   Specify in the prompt:
-   - Which existing test files are expected to fail and will need updated diagnostic markers (e.g., `<!WARNING!>...<!>`) or `@Suppress` annotations.
-   - Which new test files must be created to validate the feature (positive cases, negative cases, edge cases, suppressibility).
+- **Ask the user now** — when the answer changes the shape of the work (which users are affected,
+  is this a fix or a redesign, must old behaviour keep working). Keep it to a handful of focused
+  questions.
+- **Defer to the planner** — when it is a legitimate design decision. It goes into
+  `Open Questions for the Planner`.
 
-### Step 4 — Synthesize the Prompt
+Also flag **false premises**: if the user's description contradicts what the repository actually
+does, say so plainly rather than encoding the mistake into the brief.
 
-Construct the prompt using the standard modular structure (see [`reference/templates.md`](reference/templates.md) for full examples):
+### Step 3 — Orientation Recon (read-only)
+
+Recon exists to orient the planner, not to design for them. Gather only:
+
+1. **Where this lives** — the subsystem, module, or component that owns the behaviour, and its
+   entry points.
+2. **Vocabulary check** — confirm the user's terms map to real symbols and concepts; correct them
+   if they do not.
+3. **Current behaviour** — what the code actually does today, stated factually.
+4. **Reference material** — existing analogous features worth reading, offered as *context only*,
+   never as "follow this pattern".
+5. **Verifiability surface** — which test suites or observable behaviours would demonstrate the
+   outcome. Name them; do not map expected breakages or plan suppressions.
+
+Stop when the planner could find their way. Do not chase exact signatures, helper methods, or
+positioning strategies — that is solution-space research and belongs to the planner.
+
+### Step 4 — Synthesize the WHAT Brief
+
+Use this structure (see [`reference/templates.md`](reference/templates.md) for filled variants):
 
 ```markdown
-<Action-oriented Goal / Headline for downstream agent>
+<One-sentence goal, stated as an outcome>
 
-### Context & Requirements
-- **Background**: Why this change is needed and how the system currently behaves.
-- **Core Requirements**: Functional requirements, edge-case constraints, suppressibility, severities.
-- **Specification**: Concrete naming conventions, diagnostic parameters, positioning strategies, default error/warning messages.
+### Background / Current Behaviour
+What the system does today and why that is a problem. Factual, verified.
 
-### Checker / Implementation Logic
-- Exact components to modify with relative file paths.
-- Step-by-step logic, condition checks, helper functions to use.
-- Code generation or build tasks that must be executed (e.g. Gradle generator tasks).
+### Desired Outcome
+What should be true when this is done. Outcomes, not steps.
 
-### Test Impact & Verification
-- **Existing Tests to Update**: Concrete paths to tests that will fail and how they should be handled (e.g. updating expected diagnostic output, adding suppressions).
-- **New Tests to Add**: Concrete test scenarios covering positive cases, negative cases, edge cases, and `@Suppress` verification.
-- **Test Commands**: Targeted test tasks and flags (e.g. `./gradlew ... --tests ...`).
+### Acceptance Criteria
+- Given <situation>, <observable result>.
+- (Each one observable and verifiable by someone who did not write the code.)
 
-### Key Reference Files
-- Alphabetical or logical list of repository-relative paths to read first.
+### Scope & Non-Goals
+- In scope: <boundary>
+- Out of scope: <explicitly excluded>
+
+### Constraints
+- Hard: <must hold — including any solution detail the user genuinely mandates>
+- Preference (non-binding): <user's opinion>
+
+### Open Questions for the Planner
+- <Decision deliberately left to planning.>
+
+### Orientation
+- `<path or subsystem>` — why it is relevant.
+- Related prior art (reference only, not a prescription): `<path>`.
 ```
 
-### Step 5 — Pre-Flight Checklist
+Omit empty sections. Do not add sections describing implementation steps.
 
-Before presenting the prompt, evaluate it against [`reference/checklist.md`](reference/checklist.md):
-- [ ] Are all file paths relative to the repository root and verified to exist?
-- [ ] Are method names, class names, and diagnostic names verified against the codebase?
-- [ ] Are affected existing test cases explicitly listed with relative paths?
-- [ ] Is the prompt 100% self-contained (an agent reading it with zero knowledge of this conversation has everything needed)?
-- [ ] Has all conversational filler, preamble, and meta-explanation been removed?
+### Step 5 — WHAT-ness Gates
 
-### Step 6 — Deliver the Deliverable
+Run the brief against [`reference/checklist.md`](reference/checklist.md). The rejecting gates:
 
-- **If a file was requested or implied (e.g., `prompt.md`):**
-  Write the prompt directly to that file using project-relative paths. Provide a concise confirmation naming the file.
-- **If outputting to chat:**
-  Provide the prompt directly inside a single markdown code block (` ```markdown ... ``` `) without conversational pleasantries.
+- [ ] Does the brief state *how* to implement anything? → reject and rewrite.
+- [ ] Could two competent engineers pick different designs and both satisfy it? → must be **yes**.
+- [ ] Is every acceptance criterion observable and verifiable?
+- [ ] Are unknowns surfaced as open questions rather than guessed?
+- [ ] Is every named path, symbol, and subsystem verified to exist?
+- [ ] Is it self-contained for a reader with zero knowledge of this conversation?
+- [ ] Is it within ~40–80 lines, with no filler or meta-commentary?
+
+### Step 6 — Deliver
+
+- **If a file was requested or implied (e.g., `prompt.md`):** write the brief there using
+  repository-relative paths, then give a one-line confirmation naming the file.
+- **If outputting to chat:** emit the brief inside a single ` ```markdown ` block, nothing else.
+- **If you chose to ask clarifying questions in Step 2:** ask them first, in a short list, before
+  producing the brief.

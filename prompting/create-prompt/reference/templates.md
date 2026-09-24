@@ -1,131 +1,206 @@
-# Prompt Templates
+# WHAT-Brief Templates
 
-Modular prompt templates for different task categories and agent roles. Adapt these templates by populating them with concrete, verified facts from the codebase.
+One primary template plus three shape variants. Every variant describes **what must become true**,
+never **how to make it true**. Populate them with verified repository vocabulary; omit any section
+that has nothing real to say.
 
 ---
 
-## 1. Implementation Plan Prompt (For Planning Agents)
-
-Use when the user wants an agent to produce a structured delivery/implementation plan rather than executing the changes immediately.
+## 0. Primary Template (default — use unless a variant fits better)
 
 ```markdown
-Create a detailed implementation plan for <objective/feature description>.
+<One-sentence goal, phrased as an outcome, not an action on files>
 
-### Context & Requirements
-- **Background**: <Why this change is needed, current behavior, and why the current approach is insufficient.>
-- **Key Objectives**:
-  - <Objective 1>
-  - <Objective 2>
-- **Constraints & Non-Goals**:
-  - <Constraint 1: e.g. backward compatibility, suppressibility, performance>
-  - <Non-Goal: what should NOT be touched or refactored>
+### Background / Current Behaviour
+<What the system does today, factually and verified against the repository, and why that is a
+problem or a gap. Two to five sentences.>
 
-### Technical Specifications
-- **Target Modules / Packages**: `<module/package/path>`
-- **Core Abstractions / Interfaces**: `<Class/Interface/Type names>`
-- **Expected Precedents**: Follow the pattern established in `<existing/reference/file.kt>` for `<similar feature>`.
+### Desired Outcome
+<What should be true once this is done, from the point of view of whoever is affected — user,
+caller, build, operator. Outcomes, not steps.>
 
-### Proposed Architecture & Code Changes
-- <Component 1>: Describe planned changes, method overrides, or extensions in `<file/path>`.
-- <Component 2>: Describe data structures or registration logic in `<file/path>`.
-- <Generators/Tooling>: List any generation tasks required (e.g., `./gradlew <task>`).
+### Acceptance Criteria
+- Given <situation>, <observable result>.
+- Given <edge case>, <observable result>.
+- <Invariant that must still hold afterwards.>
 
-### Test Impact & Verification Strategy
-- **Anticipated Regressions / Affected Existing Tests**:
-  - `<path/to/test1>`: Expected failure mode and required adjustment.
-  - `<path/to/test2>`: Expected warning or suppression requirement.
-- **New Test Coverage**:
-  - Positive test cases validating expected behavior.
-  - Negative test cases validating rejection/diagnostics.
-  - Edge cases (nullability, type parameters, scoping, `@Suppress`).
-- **Targeted Test Execution**:
-  - `./gradlew <module>:test --tests "<fully.qualified.TestName>"`
+### Scope & Non-Goals
+- In scope: <the boundary of this work>
+- Out of scope: <explicitly excluded, so the planner does not expand the task>
 
-### Key Reference Files
-- `<path/to/file1>`: <One-line purpose>
-- `<path/to/file2>`: <One-line purpose>
+### Constraints
+- Hard: <must hold — compatibility, platform, severity, a technology the user genuinely mandates>
+- Preference (non-binding): <the user's opinion, which the planner may overrule with reason>
+
+### Open Questions for the Planner
+- <Design decision deliberately left open.>
+- <Unknown that recon could not settle.>
+
+### Orientation
+- `<subsystem or path>` — owns the behaviour in question.
+- `<path>` — worth reading first.
+- Prior art, reference only (not a pattern to copy): `<path>`.
+- Verifiability surface: `<test suite or observable behaviour that would demonstrate the outcome>`.
 ```
 
 ---
 
-## 2. Compiler Diagnostic Prompt
+## 1. Feature Variant
 
-Use when introducing a new compiler error, warning, or linter check (FIR, Frontend, or Backend).
+Use when something new should exist. Emphasis on the capability gap and on who benefits.
 
 ```markdown
-Implement a new <Compiler/Platform> diagnostic `<DIAGNOSTIC_NAME>` reporting a <WARNING/ERROR> when <trigger condition>.
+<Capability that should exist, stated as an outcome>
 
-### Context & Motivation
-- **Current Behavior**: <Describe current permissiveness or existing diagnostic behavior.>
-- **Target Behavior**: <Describe the new diagnostic, what it targets, and why.>
-- **Severity**: `<WARNING | ERROR>`
-- **Suppressibility**: Must be suppressible via `@Suppress("<DIAGNOSTIC_NAME>")` (or non-suppressible if mandatory error).
-- **Positioning Strategy**: `<PositioningStrategyName>` anchored on `<AST/FIR/PSI node target>`.
-- **Diagnostic Message**: Formulate the user-facing message in `<MessagesFile.kt>`, e.g., `"<Message text with placeholders {0}>"`.
+### Background / Current Behaviour
+<What people have to do today in the absence of this capability, and the cost of that.>
 
-### Checker Logic & Generator Steps
-1. **Diagnostic Definition**:
-   Add `<DIAGNOSTIC_NAME>` to `<path/to/DiagnosticsList.kt>` under the `<GROUP_NAME>` group.
-2. **Message Registration**:
-   Register default message in `<path/to/ErrorsDefaultMessages.kt>`.
-3. **Regenerate Diagnostic Factories**:
-   Run `./gradlew :<module>:generateDiagnostics` to update generated error classes.
-4. **Checker Implementation**:
-   In `<path/to/Checker.kt>`, inspect `<node.superTypes / expressions>` using `<helperMethod()>` and report `<DIAGNOSTIC_NAME>` on `declaration.source`.
+### Desired Outcome
+<The new capability, described from the consumer's perspective.>
 
-### Test Suite Impact
-- **Existing Tests Requiring Updates / Suppressions**:
-  - `<path/to/existingTest1.kt>`: Emits new diagnostic, update testData or add `@Suppress`.
-  - `<path/to/boxTest.kt>`: Codegen/box test that implements the restricted construct; update test expectations or suppress.
-- **New Diagnostic Tests**:
-  - Create `<path/to/newDiagnosticTest.kt>` validating:
-    - Declaration types (classes, interfaces, objects, anonymous objects).
-    - Expected diagnostic markers `<!<DIAGNOSTIC_NAME>!>...<!>`.
-    - Verification that `@Suppress("<DIAGNOSTIC_NAME>")` successfully silences the diagnostic.
+### Acceptance Criteria
+- Given <consumer does X>, <the new capability produces Y>.
+- Given <the feature is unused>, <existing behaviour is unchanged>.
+- <Discoverability / documentation / error-reporting expectation, if it matters.>
 
-### Key Reference Files
-- `<path/to/ExistingChecker.kt>`: Reference implementation of sibling diagnostic `<SIBLING_DIAGNOSTIC>`.
-- `<path/to/DiagnosticsList.kt>`: Diagnostic registration DSL.
-- `<path/to/ErrorsDefaultMessages.kt>`: Diagnostic message bundle.
-- `<path/to/existingTestData.kt>`: Reference test data file.
+### Scope & Non-Goals
+- In scope: <the minimum coherent slice>
+- Out of scope: <adjacent capabilities explicitly deferred>
+
+### Constraints
+- Hard: <compatibility, performance envelope, platform support, mandated technology>
+- Preference (non-binding): <the user's leanings>
+
+### Open Questions for the Planner
+- <Naming, surface shape, defaults, or placement decisions left open.>
+
+### Orientation
+- `<subsystem>` — where this capability would live.
+- Prior art, reference only: `<comparable existing feature>`.
+- Verifiability surface: `<suite or manual check>`.
 ```
 
 ---
 
-## 3. Bugfix & Reproduction Prompt
+## 2. Bugfix Variant
 
-Use when prompting an agent to fix a bug or issue reproduction.
+Already WHAT-shaped by nature: symptom, reproduction, expected result. Keep it that way — do not
+add a suspected root cause as an instruction.
 
 ```markdown
-Investigate and resolve <Issue summary / KT-XXXXX>.
+<Misbehaviour that should stop happening, stated as an outcome>
 
-### Issue Description & Repro
-- **Symptom**: <Describe unexpected behavior, crash, exception, or incorrect codegen.>
-- **Reproduction Snippet**:
-```kotlin
-<Minimal reproducing code snippet>
+### Background / Current Behaviour
+- **Symptom**: <what goes wrong, observably>
+- **Reproduction**:
+  <minimal steps or snippet>
+- **Observed result**: <actual output, error, or stack trace>
+- **Expected result**: <what should have happened>
+- **Scope of impact**: <who or what is affected, how often, since when if known>
+
+### Desired Outcome
+<The reproduction produces the expected result, and nothing else regresses.>
+
+### Acceptance Criteria
+- Given the reproduction above, <expected result>.
+- Given <related case that currently works>, behaviour is unchanged.
+- The fix is covered by a regression check.
+
+### Scope & Non-Goals
+- In scope: <this misbehaviour>
+- Out of scope: <related-but-separate issues, broader refactoring of the area>
+
+### Constraints
+- Hard: <no behavioural change for X; no performance regression; must work on Y>
+
+### Open Questions for the Planner
+- Root cause is not established — diagnosis is part of planning.
+- <Whether a related edge case should be fixed in the same change.>
+
+### Orientation
+- `<subsystem>` — where the misbehaviour surfaces (not necessarily where it originates).
+- Verifiability surface: `<existing suite covering this area>`.
 ```
-- **Observed Result**: <Exception stack trace, wrong output, or compiler crash>
-- **Expected Result**: <Correct output, clean compilation, or graceful error>
 
-### Root Cause & Relevant Code Paths
-- Suspected component: `<path/to/SourceFile.kt>` around `<methodOrClassName>`.
-- Key mechanism: <Explain what fails during lowering, resolution, or type checking.>
+---
 
-### Requirements & Edge Cases
-- Fix must not break <existing related behavior or performance>.
-- Ensure proper handling of:
-  - <Edge case 1: e.g. generic type substitution>
-  - <Edge case 2: e.g. nullable types / smart casts>
-  - <Edge case 3: e.g. cross-module / binary dependencies>
+## 3. Refactor Variant
 
-### Verification & Testing
-1. Add new reproduction test under `<path/to/testData/...>`.
-2. Run `./gradlew generateTests` to update test runners.
-3. Run targeted test: `./gradlew :<module>:test --tests "<TestRunnerClass.testMethod>"`.
-4. Run regression suite: `./gradlew :<module>:test --tests "<RelatedTestSuite>"`.
+The outcome is internal, so the invariants carry the weight: state what must **not** change.
 
-### Key Reference Files
-- `<path/to/SourceFile.kt>`: Primary code location to fix.
-- `<path/to/RelatedTest.kt>`: Existing tests for similar functionality.
+```markdown
+<Internal quality outcome, stated as a property the code should have>
+
+### Background / Current Behaviour
+<The concrete pain: what is hard to change, hard to understand, duplicated, or fragile today.
+Give evidence, not an aesthetic complaint.>
+
+### Desired Outcome
+<The property the code should have afterwards, and what becomes easier as a result.>
+
+### Acceptance Criteria
+- External behaviour is unchanged: <how that is demonstrated>.
+- <Observable structural property: e.g. a single place to change when X changes.>
+- <Performance / build-time envelope preserved.>
+
+### Invariants (must not change)
+- <Public API surface / wire format / persisted data / observable timing.>
+
+### Scope & Non-Goals
+- In scope: <the specific area>
+- Out of scope: <behaviour changes, adjacent cleanups, dependency upgrades>
+
+### Constraints
+- Hard: <must remain mechanically reviewable; no change bundled with feature work>
+- Preference (non-binding): <direction the user leans toward>
+
+### Open Questions for the Planner
+- <Whether to do it in one change or a sequence.>
+- <Which decomposition to adopt — deliberately left open.>
+
+### Orientation
+- `<path>` — the area in question.
+- Verifiability surface: `<suite that pins current behaviour>`.
+```
+
+---
+
+## Domain Appendix — Compiler Diagnostics (Kotlin)
+
+A domain-specific slant for diagnostics work. Still WHAT-only: severity and suppressibility are
+**requirements**, not implementation steps. Do not name checker files, registration DSLs,
+positioning strategies, or generator tasks here — those are the planner's decisions.
+
+```markdown
+<Code pattern that should be reported, stated as an outcome>
+
+### Background / Current Behaviour
+<The pattern currently compiles silently; describe why that is harmful.>
+
+### Desired Outcome
+<Users writing this pattern are told about it at compile time, with an actionable message.>
+
+### Acceptance Criteria
+- Given <the offending pattern>, the compiler reports it at <the offending declaration/expression>.
+- Given <a similar but legitimate pattern>, nothing is reported.
+- The report is <suppressible / non-suppressible> as specified below.
+- The message tells the user what to do instead.
+
+### Scope & Non-Goals
+- In scope: <the specific pattern and platform>
+- Out of scope: <related patterns; changing existing diagnostics>
+
+### Constraints
+- Hard: severity is `<WARNING | ERROR>`.
+- Hard: <suppressible via the diagnostic name / deliberately non-suppressible>.
+- Hard: <source compatibility expectation for existing code>.
+
+### Open Questions for the Planner
+- Diagnostic name and exact message wording.
+- Which frontend phase detects it, and how existing affected tests should be handled.
+
+### Orientation
+- `<subsystem>` — where this family of diagnostics is reported.
+- Prior art, reference only: `<comparable existing diagnostic>`.
+- Verifiability surface: `<the diagnostic test suite for this platform>`.
 ```

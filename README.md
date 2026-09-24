@@ -11,9 +11,9 @@ skills/
 │       ├── SKILL.md       # Core classification & execution workflow
 │       └── reference/     # Directives and testData directory mappings
 └── prompting/
-    └── create-prompt/     # Prepares repo-grounded prompts for other agents
-        ├── SKILL.md       # Workflow, hard rules, and prompt architecture
-        └── reference/     # Templates and pre-flight verification checklist
+    └── create-prompt/     # Turns raw thoughts into WHAT-only briefs for planning agents
+        ├── SKILL.md       # Workflow, hard rules, and brief architecture
+        └── reference/     # WHAT-brief templates and WHAT-ness checklist
 ```
 
 ## Catalog
@@ -31,12 +31,14 @@ skills/
 ### Prompting
 
 - **[`prompting/create-prompt`](./prompting/create-prompt)**
-  - **Purpose:** Prepares a comprehensive, highly-structured, and deeply codebase-grounded prompt for another agent (planning agent, coding agent, subagent, or external model) or human developer to plan or implement a technical task.
+  - **Purpose:** Turns unstructured thoughts into a structured, self-contained statement of **what** should be done — goal, background, desired outcome, acceptance criteria, scope, constraints, and open questions — for a downstream planning agent to turn into a **how**.
+  - **Pipeline Position:** `raw thoughts → create-prompt → WHAT brief → planning agent → plan → review → implementation → review`.
   - **Key Features:**
-    - **Read-Only Reconnaissance:** Forbids modifying code or entering self-directed execution planning; investigates the codebase to ground the prompt in exact relative file paths, symbols, and precedents.
-    - **Test Impact Assessment:** Actively searches existing test suites (`testData`, unit tests, box tests) to identify existing tests that will break and outline necessary updates or suppressions.
-    - **Role-Tailored Architecture:** Adapts prompt structure to the recipient (planning agent architecture briefs vs coding agent execution instructions).
-    - **Zero-Clutter Delivery:** Emits only the ready-to-run prompt or writes cleanly to a file (e.g. `prompt.md`), eliminating conversational preamble and meta-recaps.
+    - **No Solution Prescription:** Hard rule against step-by-step logic, signatures, file-edit instructions, and build/test commands; user-mandated solution details are demoted to labelled constraints.
+    - **Ask, Don't Invent:** Ambiguity is either raised as focused questions or surfaced under *Open Questions for the Planner*, never silently guessed; false premises in the user's input are corrected.
+    - **Orientation Recon (read-only):** Grounds subsystem names, entry points, current behaviour, and a verifiability surface — vocabulary, not design; prior art is reference-only.
+    - **WHAT-ness Gates:** Rejecting checklist — no prescription, design space left open, observable acceptance criteria, unknowns surfaced — plus a ~40–80 line target to stop volume dragging the brief into HOW.
+    - **Zero-Clutter Delivery:** Emits only the brief, inline or written cleanly to a file (e.g. `prompt.md`).
 
 ## Installation & Setup
 
