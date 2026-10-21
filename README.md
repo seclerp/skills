@@ -26,7 +26,8 @@ skills/
 - **[`git/commit-changes`](./git/commit-changes)**
   - **Purpose:** Turns the current working tree into a clean, reviewable series of commits: analyzes local changes, proposes a logically split commit list, waits for explicit approval, then commits.
   - **Key Features:**
-    - **Convention Discovery:** Follows user instructions, repo guidelines (`AGENTS.md`, `CONTRIBUTING.md`, …), commit tooling config and `git log` style; falls back to one-line Conventional Commits without co-authorship or trailers.
+    - **Convention Discovery:** Follows user instructions, repo guidelines (`AGENTS.md`, `CONTRIBUTING.md`, …), commit tooling config and `git log` style; falls back to one-line Conventional Commits without trailers.
+    - **No Co-Authorship:** Never adds `Co-authored-by` trailers, even if the repository's guidelines or history use them; only an explicit user request overrides this.
     - **Logical Grouping:** One logical change per commit, each buildable on its own; lockfile hunks follow the manifest changes that caused them; refactors → features/fixes → docs.
     - **Approval Gate:** Nothing is committed until the user approves unconditionally; questions, concerns or "ok, but…" trigger a revised full proposal instead.
     - **Non-Destructive Splits:** Splits files across commits at the index level only, never touching working files; no amend, rebase, push or `--no-verify` unless asked.

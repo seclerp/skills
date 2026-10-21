@@ -2,7 +2,8 @@
 name: commit-changes
 description: >
   Analyzes local git changes, proposes a logically split list of commits that follow the repository's
-  commit conventions (falling back to Conventional Commits one-liners without co-authorship), waits for
+  commit conventions (falling back to Conventional Commits one-liners), never adds co-authorship trailers
+  even if the repository allows them (unless the user explicitly asks), waits for
   explicit user approval, applies requested adjustments, and only then creates the commits. Use whenever
   the user asks to commit local changes, split work into commits, or "come up with a commit list".
 user-invocable: true
@@ -24,8 +25,12 @@ Turns the current working tree into a clean, reviewable series of commits. The s
    "Line-level splits").
 4. **No history rewriting** (`--amend`, `rebase`, `reset --hard`, force-push) and **no push** unless the
    user explicitly asks.
-5. **Co-authorship / trailers follow the repository rules.** If the repo has no rule, add **no**
-   `Co-authored-by` or other trailers. An explicit user instruction always wins over both.
+5. **No co-authorship, ever, by default.** Never add `Co-authored-by` trailers (or any other mention of
+   an AI/agent/tool as co-author, e.g. "Generated with …", `--trailer "Co-authored-by: …"`) — **even if
+   the repository guidelines, commit template, tooling config or `git log` history use or allow them**.
+   This overrides every convention found in Step 2. The only exception is an explicit request from the
+   user in the current conversation to add co-authorship. Other trailers (e.g. `Signed-off-by`, ticket
+   refs) follow the repository rules.
 6. Do not run hooks-bypassing flags (`--no-verify`) unless the user asks. If a hook fails, report it and
    fix the cause or ask.
 
@@ -51,7 +56,8 @@ git log --oneline -15                            # existing message style
 
 ### Step 2 — Discover commit conventions
 
-Search, in order, and use the first source(s) that define rules:
+Search, in order, and use the first source(s) that define rules (co-authorship is never taken from these
+sources — see Hard Rule 5):
 
 1. Explicit user instructions in the current conversation (e.g. "don't use co-authorship").
 2. Repo guidelines: `AGENTS.md`, `CLAUDE.md`, `.junie/AGENTS.md`, `.junie/guidelines.md`, `CONTRIBUTING.md`,
@@ -61,13 +67,14 @@ Search, in order, and use the first source(s) that define rules:
    `.gitmessage` / `git config commit.template`.
 4. De-facto practice from `git log` (last ~30 commits): prefix style (`feat(scope):`, `[area]`, ticket IDs
    like `KT-12345`), allowed types (e.g. `misc:`), scopes in use, capitalization after the colon,
-   imperative mood, subject length, body usage, trailers.
+   imperative mood, subject length, body usage, trailers (ignore `Co-authored-by` ones).
 
 **Fallback** (nothing found): Conventional Commits, one line, no body, no trailers:
 `<type>(<optional scope>): <Imperative summary>` — types `feat`, `fix`, `refactor`, `perf`, `test`,
 `docs`, `build`, `ci`, `chore`, `style`, `revert`; subject ≤ 72 chars, no trailing period.
 
-State briefly which convention you detected and where it came from.
+State briefly which convention you detected and where it came from. If the repo uses or requires
+co-authorship trailers, mention that they will still be omitted per Hard Rule 5.
 
 ### Step 3 — Group changes into commits
 
@@ -116,7 +123,10 @@ with the question). On each reply:
    - Stage partial files via "Line-level splits" below.
    - Check `git diff --cached --stat -M` matches the plan.
    - Commit with the approved message: `git commit -m "<subject>"` (add `-m "<body>"` only if the
-     convention uses bodies; add trailers only if the convention requires them).
+     convention uses bodies; add trailers only if the convention requires them — never
+     `Co-authored-by`, see Hard Rule 5).
+   - After committing, check `git log -1 --format=%B` contains no `Co-authored-by` line (commit
+     templates or hooks may inject one); if it does, report it to the user instead of rewriting history.
 3. Optional but recommended for multi-commit series touching code: verify an intermediate commit builds in
    a temporary worktree (`git worktree add --detach <tmp> <sha>`, build there, then
    `git worktree remove --force <tmp>`), reusing the main build cache where possible.
