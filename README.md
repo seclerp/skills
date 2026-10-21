@@ -6,6 +6,9 @@ A collection of personal, cross-agent skills designed to enhance productivity an
 
 ```text
 skills/
+├── git/
+│   └── commit-changes/    # Splits local changes into approved, convention-following commits
+│       └── SKILL.md       # Analysis, convention discovery, approval gate, commit workflow
 ├── kotlin/
 │   └── kt-add-test/       # Converts Kotlin snippets/issues into compiler testData tests
 │       ├── SKILL.md       # Core classification & execution workflow
@@ -17,6 +20,16 @@ skills/
 ```
 
 ## Catalog
+
+### Git
+
+- **[`git/commit-changes`](./git/commit-changes)**
+  - **Purpose:** Turns the current working tree into a clean, reviewable series of commits: analyzes local changes, proposes a logically split commit list, waits for explicit approval, then commits.
+  - **Key Features:**
+    - **Convention Discovery:** Follows user instructions, repo guidelines (`AGENTS.md`, `CONTRIBUTING.md`, …), commit tooling config and `git log` style; falls back to one-line Conventional Commits without co-authorship or trailers.
+    - **Logical Grouping:** One logical change per commit, each buildable on its own; lockfile hunks follow the manifest changes that caused them; refactors → features/fixes → docs.
+    - **Approval Gate:** Nothing is committed until the user approves unconditionally; questions, concerns or "ok, but…" trigger a revised full proposal instead.
+    - **Non-Destructive Splits:** Splits files across commits at the index level only, never touching working files; no amend, rebase, push or `--no-verify` unless asked.
 
 ### Kotlin
 
@@ -58,6 +71,22 @@ ln -sfn ~/.claude/skills/kt-add-test ~/.codex/skills/kt-add-test
 # Junie
 mkdir -p ~/.junie/skills
 ln -sfn ~/.claude/skills/kt-add-test ~/.junie/skills/kt-add-test
+```
+
+### Installing `commit-changes`
+
+```bash
+# Canonical location (e.g. for Claude Code)
+mkdir -p ~/.claude/skills
+ln -sfn ~/Pets/skills/git/commit-changes ~/.claude/skills/commit-changes
+
+# Codex CLI
+mkdir -p ~/.codex/skills
+ln -sfn ~/.claude/skills/commit-changes ~/.codex/skills/commit-changes
+
+# Junie
+mkdir -p ~/.junie/skills
+ln -sfn ~/.claude/skills/commit-changes ~/.junie/skills/commit-changes
 ```
 
 ### Installing `create-prompt`
