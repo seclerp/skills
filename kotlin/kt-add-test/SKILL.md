@@ -2,10 +2,10 @@
 name: kt-add-test
 description: >
   Converts an arbitrary Kotlin snippet (or a KT-XXXXX YouTrack issue) into a correctly-placed,
-  correctly-annotated Kotlin compiler test file under compiler/testData/, then pauses before
-  regenerating test runners and running it. Personal skill: works from any Kotlin repo worktree,
-  never committed to the project. Use whenever the user wants to turn a Kotlin repro/snippet into
-  a compiler test, or asks to reproduce a KT-XXXXX bug as a test.
+  correctly-annotated Kotlin compiler test file under compiler/testData/, always regenerates test
+  runners via generateTests, then pauses before running the test. Personal skill: works from any
+  Kotlin repo worktree, never committed to the project. Use whenever the user wants to turn a Kotlin
+  repro/snippet into a compiler test, or asks to reproduce a KT-XXXXX bug as a test.
 user-invocable: true
 ---
 
@@ -27,13 +27,17 @@ Full reference tables (directives, directory map) live alongside this file:
 1. **Never** place a test under `js/js.translator/testData/**`. That is Kotlin/JS-specific box/lineNumber/typescript-export
    infrastructure, entirely separate from the backend-agnostic `compiler/testData/codegen/box`. If the user asks for this
    location explicitly, refuse and redirect to the correct `compiler/testData/...` location instead — explain why.
-2. **Never** run a Gradle command without explicit user confirmation obtained *after* the test file has been written. This
-   includes `generateTests` and any targeted test run.
-3. **Never** write anything inside the Kotlin repo checkout except the test-data file(s) the user asked for (and, after
-   confirmation, whatever `generateTests` legitimately regenerates under `tests-gen/`).
-4. **Never** guess when classification is genuinely ambiguous — present the top candidate categories with a short rationale
+2. **Always** run `generateTests` right after the new test file(s) have been written (Step 8). This is mandatory and does
+   **not** require user confirmation: a test-data file that isn't registered in the generated runners is never executed,
+   and it makes the generated `testAllFilesPresentIn*` checks fail. Never skip this step and never finish the skill without
+   it having run.
+3. **Never** run any *other* Gradle command (e.g. a targeted test run) without explicit user confirmation obtained *after*
+   `generateTests` has completed.
+4. **Never** write anything inside the Kotlin repo checkout except the test-data file(s) the user asked for and whatever
+   `generateTests` legitimately regenerates under `tests-gen/`.
+5. **Never** guess when classification is genuinely ambiguous — present the top candidate categories with a short rationale
    and let the user pick.
-5. All file paths this skill writes to must be **project-root-relative** (e.g. `compiler/testData/codegen/box/...`), never
+6. All file paths this skill writes to must be **project-root-relative** (e.g. `compiler/testData/codegen/box/...`), never
    an absolute path baked in from a previous invocation.
 
 ## Step 1 — Parse input
@@ -129,7 +133,7 @@ backend-agnostic equivalent, and use that instead.
   `<!DIAGNOSTIC_NAME!>...<!>` markers. **Don't fully trust a guessed diagnostic name or marker span** — e.g. a bad
   initializer expression is reported as `INITIALIZER_TYPE_MISMATCH` on the `=` token, not a generic `TYPE_MISMATCH` on
   the expression; overload ambiguity may resolve differently than expected depending on the exact overload set. Treat
-  Step 9's first test run as the source of truth: if it fails with "Actual data differs from file content," that's the
+  Step 10's first test run as the source of truth: if it fails with "Actual data differs from file content," that's the
   framework telling you the real diagnostic name/span — adopt it (or use `-Pkotlin.test.update.test.data=true` once to
   have the framework fill in the correct markers, then review the diff before trusting it). If the
   test intentionally expects **zero** diagnostics, no markers are added. See
@@ -165,22 +169,31 @@ Write directives at the top of the file in this conventional order: `ISSUE`, `RU
 Write the file(s) at the path chosen in Step 4, **relative to the current project root** — never hardcode an absolute
 path from a previous run, since this skill must work identically from any worktree/clone.
 
-## Step 8 — Report and stop before touching Gradle
+Then proceed **immediately** to Step 8 — do not stop or ask the user in between.
+
+## Step 8 — Regenerate test runners (mandatory)
+
+1. Run `./gradlew generateTests -q` (quiet flag per `.ai/guidelines.md`/`.ai/testing.md` conventions). This is required
+   after adding any new test file and needs no user confirmation (see Hard rule 2).
+2. If `generateTests` fails, report the error output to the user and stop — do not move on to running the test. A common
+   cause is a file placed in a directory no generator covers or excludes; revisit Step 4 if that's the case.
+3. If it succeeds, continue to Step 9.
+
+## Step 9 — Report and stop before running the test
 
 Report to the user, then **stop**:
 
 - The chosen category and a one-line rationale (including why `codegen/box` vs `codegen/boxJvm` if relevant).
 - The full list of injected directives and why each was added.
 - The file path(s) written.
+- That `generateTests` was run successfully.
 - A note if this is a "bug repro" test where a failing/red run is *expected* — not a skill failure.
 
-Then explicitly ask: **"Run `generateTests` and the new test now?"** Do not run any Gradle command until the user
-confirms.
+Then explicitly ask: **"Run the new test now?"** Do not run any further Gradle command until the user confirms.
 
-## Step 9 — On confirmation: regenerate and run
+## Step 10 — On confirmation: run the test
 
-1. Run `./gradlew generateTests -q` (quiet flag per `.ai/guidelines.md`/`.ai/testing.md` conventions).
-2. Locate the generated test method:
+1. Locate the generated test method:
    - `tests-gen/` output is written under a module's `build/` directory (e.g. `compiler/fir/fir2ir/build/tests-gen/...`)
      and is **git-ignored** — a repo-aware/git-grep-based search tool will not see it. Use a plain filesystem `grep`
      over the `build/tests-gen` tree instead.
@@ -192,14 +205,14 @@ confirms.
      `codegen/boxJvm/jdk`, generating two similarly-named nested classes, e.g. `...Generated$Box$Jdk` vs.
      `...Generated$BoxJvm$Jdk`). Check the `@TestDataPath` annotation directly above the matching `@TestMetadata`
      method to confirm which nested class actually corresponds to the directory you wrote the file in, and use that
-     exact nested-class chain in Step 9.3.
+     exact nested-class chain in Step 10.2.
    - To find which Gradle module/task owns a given `compiler/testData/...` path (and thus which `test` task to run),
      check that module's `build.gradle.kts` for a `projectTests { testData(...) ; testGenerator(...) }` block listing
      that path — the module declaring it is the one whose `test` task compiles and runs the generated class.
-3. Run just that single targeted test (not the whole suite) for a fast, resource-efficient check, e.g.:
+2. Run just that single targeted test (not the whole suite) for a fast, resource-efficient check, e.g.:
    `./gradlew :compiler:fir:fir2ir:test --tests "org.jetbrains.kotlin.test.runners.codegen.SomeGenerated\$Outer\$Inner.testMethodName" -q`.
 
-## Step 10 — Report the outcome
+## Step 11 — Report the outcome
 
 Distinguish clearly between:
 

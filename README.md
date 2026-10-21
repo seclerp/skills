@@ -40,7 +40,8 @@ skills/
     - **Intelligent Classification:** Distinguishes between `codegen/box`, JVM-specific `codegen/boxJvm`, `diagnostics/tests`, `ir/irText`, and bytecode tests, enforcing proper placement rules (such as redirecting away from `js/js.translator/testData`).
     - **Directive Inference:** Automatically infers and injects required header directives (`WITH_STDLIB`, `WITH_REFLECT`, `WITH_COROUTINES`, `TARGET_BACKEND`, `RUN_PIPELINE_TILL`, `FILE`/`MODULE`, etc.).
     - **YouTrack Integration:** Can fetch issue details and derive reproduction snippets directly from YouTrack when only an issue ID is provided.
-    - **Safety-First Gradle Gate:** Stops and requests explicit user confirmation before running `./gradlew generateTests` or executing targeted tests.
+    - **Mandatory Test Regeneration:** Always runs `./gradlew generateTests` right after writing the test, so the new file is registered in the generated runners.
+    - **Safety-First Gradle Gate:** Stops and requests explicit user confirmation before executing the targeted test or any other Gradle command.
 
 ### Prompting
 
